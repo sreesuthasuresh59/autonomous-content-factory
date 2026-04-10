@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/global.css';
 
 import UploadPage from './pages/UploadPage';
@@ -13,7 +13,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/" element={<Navigate to="/upload" />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/upload" element={<UploadPage />} />
         <Route path="/agent-room" element={<AgentRoom />} />
         <Route path="/dashboard" element={<Dashboard />} />
