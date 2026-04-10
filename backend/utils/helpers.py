@@ -14,13 +14,32 @@ def allowed_file(filename: str) -> bool:
 def extract_text_from_file(file) -> str | None:
     """
     Extract plain text from uploaded file.
-    Currently handles .txt and .md files.
-    PDF/DOCX support added in Phase 3 extension.
+    Supports .txt, .md, .pdf, and .docx files.
     """
     filename = file.filename.lower()
 
-    if filename.endswith(".txt") or filename.endswith(".md"):
-        return file.read().decode("utf-8")
+    try:
+        if filename.endswith(".txt") or filename.endswith(".md"):
+            return file.read().decode("utf-8")
+            
+        elif filename.endswith(".pdf"):
+            import PyPDF2
+            reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+            return text.strip()
+            
+        elif filename.endswith(".docx"):
+            import docx
+            doc = docx.Document(file)
+            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            
+    except Exception as e:
+        # Fallback to None if extraction fails
+        pass
 
     return None
 

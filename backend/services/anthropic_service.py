@@ -6,9 +6,9 @@ from config import Config
 genai.configure(api_key=Config.GEMINI_API_KEY)
 
 def get_gemini_model():
-    """Returns configured Gemini 2.0 Flash model"""
+    """Returns configured Gemini model"""
     return genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
+        model_name="gemini-flash-latest",
         generation_config={
             "temperature": 0.3,
             "top_p": 0.95,
