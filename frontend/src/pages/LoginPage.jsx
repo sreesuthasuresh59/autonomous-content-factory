@@ -34,14 +34,14 @@ const LoginPage = () => {
       const response = await axios.post(endpoint, { email, password });
 
       if (mode === 'signup') {
-        setSuccess('✅ Account created! Please check your email to confirm, then log in.');
+        setSuccess(' Account created! Please check your email to confirm, then log in.');
         setMode('login');
       } else {
         login(response.data.user, response.data.access_token);
         navigate('/upload');
       }
     } catch (err) {
-      setError(err.response?.data?.error || '❌ Something went wrong. Try again.');
+      setError(err.response?.data?.error || ' Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ const LoginPage = () => {
                   fontWeight: 600, cursor: 'pointer',
                   fontSize: '0.9rem', transition: 'all 0.2s'
                 }}>
-                {m === 'login' ? '🔑 Login' : '✨ Sign Up'}
+                {m === 'login' ? 'Login' : 'Sign Up'}
               </button>
             ))}
           </div>
@@ -197,7 +197,7 @@ const LoginPage = () => {
               </div>
             ) : (
               <Button onClick={handleSubmit} fullWidth size="lg">
-                {mode === 'login' ? '🚀 Login' : '✨ Create Account'}
+                {mode === 'login' ? 'Login' : ' Create Account'}
               </Button>
             )}
           </div>
