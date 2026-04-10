@@ -1,7 +1,18 @@
 // frontend/src/components/Navbar.jsx
+
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
+  const { user, logout } = useAuth();   // ✅ added
+  const navigate = useNavigate();       // ✅ added
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <nav style={{
       display: 'flex',
@@ -15,6 +26,7 @@ const Navbar = () => {
       top: 0,
       zIndex: 100,
     }}>
+
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
         <div style={{
@@ -24,26 +36,21 @@ const Navbar = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '1.1rem'
         }}>⚡</div>
-        <span style={{
-          fontWeight: 700, fontSize: '1.1rem',
-          background: 'var(--gradient-main)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>
-          ContentFactory
-        </span>
+
       </div>
 
       {/* Nav Links */}
       <div style={{ display: 'flex', gap: '2rem' }}>
         {['Dashboard', 'Campaigns', 'Settings'].map(link => (
-          <span key={link} style={{
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            fontWeight: 500,
-            transition: 'color 0.2s'
-          }}
+          <span
+            key={link}
+            style={{
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              fontWeight: 500,
+              transition: 'color 0.2s'
+            }}
             onMouseEnter={e => e.target.style.color = 'var(--text-primary)'}
             onMouseLeave={e => e.target.style.color = 'var(--text-secondary)'}
           >
@@ -52,17 +59,35 @@ const Navbar = () => {
         ))}
       </div>
 
-      {/* User Badge */}
-      <div style={{
-        background: 'var(--glass-bg)',
-        border: '1px solid var(--glass-border)',
-        borderRadius: '20px',
-        padding: '0.4rem 1rem',
-        fontSize: '0.85rem',
-        color: 'var(--text-secondary)'
-      }}>
-        👤 My Account
-      </div>
+      {/* ✅ FIXED USER SECTION */}
+      {user ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+
+          <span style={{
+            color: 'var(--text-muted)',
+            fontSize: '0.85rem'
+          }}>
+            {user.email}
+          </span>
+
+          <button
+            onClick={handleLogout}
+            style={{
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '20px',
+              padding: '0.4rem 1rem',
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+          >
+            Logout
+          </button>
+
+        </div>
+      ) : null}
+
     </nav>
   );
 };
