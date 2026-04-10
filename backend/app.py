@@ -3,6 +3,7 @@ from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 from routes.campaign_routes import campaign_bp
+from routes.auth_routes import auth_bp
 import os
 
 load_dotenv()
@@ -12,6 +13,7 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 # Register Blueprints
 app.register_blueprint(campaign_bp)
+app.register_blueprint(auth_bp)
 
 @app.route("/health", methods=["GET"])
 def health_check():
