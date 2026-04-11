@@ -6,10 +6,10 @@ import AgentCard from '../components/AgentCard';
 import ChatFeed from '../components/ChatFeed';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
+import ContentPanel from '../components/ContentPanel';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
-// Helper to get current time string
 const now = () => new Date().toLocaleTimeString([], {
   hour: '2-digit', minute: '2-digit', second: '2-digit'
 });
@@ -25,20 +25,20 @@ const AgentRoom = () => {
 
   // Agent outputs
   const [factSheet, setFactSheet] = useState(null);
+  const [generatedContent, setGeneratedContent] = useState(null);
 
   // UI state
   const [messages, setMessages] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [currentStep, setCurrentStep] = useState('fact-check');
   const [error, setError] = useState('');
   const [campaignId, setCampaignId] = useState(null);
   const [campaignSource, setCampaignSource] = useState(null);
 
-  // Add message to chat feed
   const addMessage = useCallback((text, type = 'system') => {
     setMessages(prev => [...prev, { text, type, time: now() }]);
   }, []);
 
-  // Load campaign data from localStorage
   useEffect(() => {
     const source = localStorage.getItem('campaignSource');
     const id = localStorage.getItem('campaign_id');
@@ -50,29 +50,28 @@ const AgentRoom = () => {
 
     setCampaignSource(JSON.parse(source));
     setCampaignId(id);
-
     addMessage('Campaign loaded and ready to process.', 'system');
-    addMessage(`Source: ${JSON.parse(source).filename || JSON.parse(source).source || 'Unknown'}`, 'system');
+    addMessage(
+      `Source: ${JSON.parse(source).filename || JSON.parse(source).source || 'Unknown'}`,
+      'system'
+    );
   }, [navigate, addMessage]);
 
-  // ─── Run Fact-Check Agent ────────────────────────────────────────
+  // ─── Agent 1: Fact-Check ─────────────────────────────────────────
   const runFactCheckAgent = async () => {
     if (!campaignId) return;
 
     setIsRunning(true);
     setError('');
     setAgent1Status('thinking');
-
     addMessage('Initializing Fact-Check Agent...', 'agent1');
 
     try {
-      // Small delay for UX — shows "thinking" state
       await new Promise(r => setTimeout(r, 800));
       setAgent1Status('working');
       addMessage('Reading source document and extracting facts...', 'agent1');
-
       await new Promise(r => setTimeout(r, 600));
-      addMessage('Building structured fact-sheet from source content...', 'agent1');
+      addMessage('Building structured fact-sheet...', 'agent1');
 
       const response = await axios.post(
         `http://localhost:5000/api/campaign/${campaignId}/fact-check`,
@@ -85,6 +84,7 @@ const AgentRoom = () => {
       if (result.status === 'success') {
         setFactSheet(result.fact_sheet);
         setAgent1Status('done');
+        setCurrentStep('copywrite');
 
         addMessage('Fact-sheet successfully generated ✅', 'success');
         addMessage(
@@ -93,8 +93,8 @@ const AgentRoom = () => {
           'agent1'
         );
         addMessage(
-          `Confidence Score: ${((result.confidence_score || 0) * 100).toFixed(0)}% | ` +
-          `Source Quality: ${result.source_quality || 'unknown'}`,
+          `Confidence: ${((result.confidence_score || 0) * 100).toFixed(0)}% | ` +
+          `Quality: ${result.source_quality || 'unknown'}`,
           'agent1'
         );
 
@@ -102,9 +102,8 @@ const AgentRoom = () => {
           result.warnings.forEach(w => addMessage(w, 'warning'));
         }
 
-        addMessage('Fact-Check Agent complete. Source of Truth is locked. 🔒', 'agent1');
+        addMessage('Source of Truth locked 🔒 Ready for Copywriter Agent.', 'agent1');
       }
-
     } catch (err) {
       setAgent1Status('error');
       const msg = err.response?.data?.error || 'Fact-check agent failed';
@@ -115,40 +114,91 @@ const AgentRoom = () => {
     }
   };
 
+  // ─── Agent 2: Copywriter ─────────────────────────────────────────
+  const runCopywriterAgent = async () => {
+    if (!campaignId) return;
+
+    setIsRunning(true);
+    setError('');
+    setAgent2Status('thinking');
+    addMessage('Initializing Copywriter Agent...', 'agent2');
+
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      setAgent2Status('working');
+      addMessage('Reading locked fact-sheet as source of truth...', 'agent2');
+      await new Promise(r => setTimeout(r, 500));
+      addMessage('Generating 500-word blog post (Professional tone)...', 'agent2');
+      await new Promise(r => setTimeout(r, 400));
+      addMessage('Generating 5-post social media thread (Punchy tone)...', 'agent2');
+      await new Promise(r => setTimeout(r, 400));
+      addMessage('Generating email teaser (Formal tone)...', 'agent2');
+
+      const response = await axios.post(
+        `http://localhost:5000/api/campaign/${campaignId}/copywrite`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const result = response.data;
+
+      if (result.status === 'success') {
+        setGeneratedContent(result);
+        setAgent2Status('done');
+        setCurrentStep('review');
+
+        addMessage('All 3 content formats generated ✅', 'success');
+        addMessage(
+          `Blog: ${result.blog?.word_count || '~500'} words | ` +
+          `Social: ${result.social?.posts?.length || 5} posts | ` +
+          `Email: ${result.email?.word_count || '~100'} words`,
+          'agent2'
+        );
+
+        if (result.has_warnings) {
+          result.warnings.forEach(w => addMessage(w, 'warning'));
+        }
+
+        addMessage('Copywriter Agent complete. Ready for Editor review.', 'agent2');
+      }
+    } catch (err) {
+      setAgent2Status('error');
+      const msg = err.response?.data?.error || 'Copywriter agent failed';
+      setError(msg);
+      addMessage(`Error: ${msg}`, 'error');
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // ─── Regenerate Content ──────────────────────────────────────────
+  const handleRegenerate = async () => {
+    setGeneratedContent(null);
+    setAgent2Status('idle');
+    setCurrentStep('copywrite');
+    addMessage('Regenerating content...', 'system');
+    await runCopywriterAgent();
+  };
+
   // ─── Render Fact Sheet ───────────────────────────────────────────
   const renderFactSheet = () => {
     if (!factSheet) return null;
 
     const sections = [
-      {
-        title: '🏷️ Product / Topic',
-        content: factSheet.product_or_topic || 'N/A'
-      },
-      {
-        title: '🏢 Company / Brand',
-        content: factSheet.company_or_brand || 'N/A'
-      },
-      {
-        title: '💡 Value Proposition',
-        content: factSheet.value_proposition || 'N/A'
-      },
+      { title: '🏷️ Product / Topic', content: factSheet.product_or_topic || 'N/A' },
+      { title: '🏢 Company / Brand', content: factSheet.company_or_brand || 'N/A' },
+      { title: '💡 Value Proposition', content: factSheet.value_proposition || 'N/A' },
       {
         title: '⚡ Core Features',
-        content: factSheet.core_features?.length
-          ? factSheet.core_features
-          : ['None found']
+        content: factSheet.core_features?.length ? factSheet.core_features : ['None found']
       },
       {
         title: '🎯 Target Audience',
-        content: factSheet.target_audience?.length
-          ? factSheet.target_audience
-          : ['None found']
+        content: factSheet.target_audience?.length ? factSheet.target_audience : ['None found']
       },
       {
         title: '📊 Key Statistics',
-        content: factSheet.key_statistics?.length
-          ? factSheet.key_statistics
-          : ['None found']
+        content: factSheet.key_statistics?.length ? factSheet.key_statistics : ['None found']
       },
       {
         title: '💰 Pricing',
@@ -179,11 +229,8 @@ const AgentRoom = () => {
           <div style={{
             background: 'rgba(34,197,94,0.1)',
             border: '1px solid rgba(34,197,94,0.3)',
-            borderRadius: '20px',
-            padding: '4px 14px',
-            fontSize: '0.8rem',
-            color: '#4ade80',
-            fontWeight: 600
+            borderRadius: '20px', padding: '4px 14px',
+            fontSize: '0.8rem', color: '#4ade80', fontWeight: 600
           }}>
             Confidence: {((factSheet.confidence_score || 0) * 100).toFixed(0)}%
           </div>
@@ -192,16 +239,15 @@ const AgentRoom = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '1rem'
+          gap: '1rem',
+          marginBottom: '2rem'
         }}>
           {sections.map((section, i) => (
             <div key={i} className="glass-card" style={{ padding: '1rem' }}>
               <p style={{
-                color: 'var(--text-muted)',
-                fontSize: '0.78rem', fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '0.5rem'
+                color: 'var(--text-muted)', fontSize: '0.78rem',
+                fontWeight: 600, textTransform: 'uppercase',
+                letterSpacing: '0.05em', marginBottom: '0.5rem'
               }}>
                 {section.title}
               </p>
@@ -228,16 +274,6 @@ const AgentRoom = () => {
             </div>
           ))}
         </div>
-
-        {/* Proceed Button */}
-        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            onClick={() => navigate('/review')}
-            size="lg"
-          >
-            Continue to Copywriter Agent →
-          </Button>
-        </div>
       </div>
     );
   };
@@ -258,7 +294,11 @@ const AgentRoom = () => {
             borderRadius: '20px', padding: '0.3rem 1rem',
             marginBottom: '0.8rem'
           }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', fontWeight: 600 }}>
+            <span style={{
+              fontSize: '0.75rem',
+              color: 'var(--accent-purple)',
+              fontWeight: 600
+            }}>
               AGENT ROOM
             </span>
           </div>
@@ -273,12 +313,53 @@ const AgentRoom = () => {
           </p>
         </div>
 
+        {/* Progress Steps */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          gap: '0.5rem', marginBottom: '2rem',
+          flexWrap: 'wrap'
+        }}>
+          {[
+            { id: 'fact-check', label: '1. Fact-Check', done: !!factSheet },
+            { id: 'copywrite', label: '2. Copywriter', done: !!generatedContent },
+            { id: 'review', label: '3. Editor Review', done: false },
+          ].map((step, i) => (
+            <React.Fragment key={step.id}>
+              <div style={{
+                padding: '6px 16px',
+                borderRadius: '20px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                background: step.done
+                  ? 'rgba(34,197,94,0.15)'
+                  : currentStep === step.id
+                    ? 'rgba(124,58,237,0.15)'
+                    : 'var(--bg-secondary)',
+                border: `1px solid ${step.done
+                  ? 'rgba(34,197,94,0.3)'
+                  : currentStep === step.id
+                    ? 'var(--border-accent)'
+                    : 'var(--border-subtle)'}`,
+                color: step.done
+                  ? '#4ade80'
+                  : currentStep === step.id
+                    ? 'var(--accent-purple)'
+                    : 'var(--text-muted)'
+              }}>
+                {step.done ? '✅ ' : ''}{step.label}
+              </div>
+              {i < 2 && (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>→</span>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
         {/* Agent Cards */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '1rem',
-          marginBottom: '2rem'
+          gap: '1rem', marginBottom: '2rem'
         }}>
           <AgentCard
             name="Fact-Check Agent"
@@ -292,6 +373,7 @@ const AgentRoom = () => {
             role="Creative Voice"
             description="Takes the fact-sheet and generates a blog post, social media thread, and email teaser — each with the right tone."
             status={agent2Status}
+            output={generatedContent ? 'Blog + Social + Email generated' : null}
           />
           <AgentCard
             name="Editor Agent"
@@ -326,30 +408,71 @@ const AgentRoom = () => {
           </div>
         )}
 
-        {/* Action Button */}
-        {!factSheet && (
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {isRunning ? (
-              <Loader text="Agent 1 is analyzing your document..." />
-            ) : (
-              <>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {isRunning ? (
+            <Loader text={
+              agent1Status === 'working' || agent1Status === 'thinking'
+                ? 'Agent 1 analyzing document...'
+                : 'Agent 2 writing content...'
+            } />
+          ) : (
+            <>
+              {/* Step 1 button */}
+              {!factSheet && (
                 <Button onClick={runFactCheckAgent} size="lg" disabled={!campaignId}>
                   🔍 Run Fact-Check Agent
                 </Button>
+              )}
+
+              {/* Step 2 button */}
+              {factSheet && !generatedContent && (
+                <Button onClick={runCopywriterAgent} size="lg" disabled={!campaignId}>
+                  ✍️ Run Copywriter Agent
+                </Button>
+              )}
+
+              {/* Step 3 button */}
+              {generatedContent && (
                 <Button
-                  onClick={() => navigate('/upload')}
-                  variant="ghost"
+                  onClick={() => navigate('/review')}
                   size="lg"
                 >
-                  ← Back to Upload
+                  ✅ Proceed to Editor Review →
                 </Button>
-              </>
-            )}
-          </div>
-        )}
+              )}
+
+              <Button
+                onClick={() => navigate('/upload')}
+                variant="ghost" size="lg"
+              >
+                ← Back to Upload
+              </Button>
+            </>
+          )}
+        </div>
 
         {/* Fact Sheet Output */}
         {renderFactSheet()}
+
+        {/* Generated Content Output */}
+        {generatedContent && (
+          <div style={{ marginTop: '2rem' }}>
+            <h2 style={{
+              color: 'var(--text-primary)',
+              fontSize: '1.2rem', fontWeight: 700,
+              marginBottom: '1rem'
+            }}>
+              ✍️ Generated Content — Version {generatedContent.version}
+            </h2>
+            <ContentPanel
+              blog={generatedContent.blog}
+              social={generatedContent.social}
+              email={generatedContent.email}
+              onRegenerate={handleRegenerate}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
