@@ -88,7 +88,7 @@ const AgentRoom = () => {
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 300000 // 5 min timeout for full pipeline
+          timeout: 120000 // 2 min timeout for full pipeline
         }
       );
 

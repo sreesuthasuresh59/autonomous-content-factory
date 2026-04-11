@@ -17,7 +17,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/upload" element={
             <ProtectedRoute><UploadPage /></ProtectedRoute>

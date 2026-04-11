@@ -80,15 +80,10 @@ def upload_campaign():
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Run Full Pipeline (NEW) ───────────────────────────────────────
+# ─── Run Full Pipeline ─────────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/run-pipeline", methods=["POST"])
 @require_auth
 def run_pipeline(campaign_id):
-    """
-    🔥 Master route — runs all 3 agents in sequence
-    with automatic feedback loop.
-    Single endpoint that orchestrates the entire factory.
-    """
     try:
         result = run_full_pipeline(campaign_id)
         return jsonify(result), 200
@@ -127,7 +122,57 @@ def run_editor_review(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Get Data Routes ───────────────────────────────────────────────
+# ─── Dashboard: Get Full Campaign Summary ─────────────────────────
+@campaign_bp.route("/api/campaign/<campaign_id>/summary", methods=["GET"])
+@require_auth
+def get_campaign_summary(campaign_id):
+    """
+    Returns everything needed for the Final Review page:
+    campaign details + fact-sheet + content + editor feedback
+    in a single consolidated response.
+    """
+    try:
+        campaign = get_campaign(campaign_id)
+        if not campaign:
+            return jsonify({"error": "Campaign not found"}), 404
+
+        fact_sheet_record = get_fact_sheet(campaign_id)
+        content_record = get_generated_content(campaign_id)
+        feedback_record = get_editor_feedback(campaign_id)
+
+        return jsonify({
+            "status": "success",
+            "campaign": campaign,
+            "fact_sheet": fact_sheet_record.get("content") if fact_sheet_record else None,
+            "content": {
+                "blog": json.loads(content_record["blog_post"])
+                        if content_record and content_record.get("blog_post") else None,
+                "social": json.loads(content_record["social_thread"])
+                          if content_record and content_record.get("social_thread") else None,
+                "email": json.loads(content_record["email_teaser"])
+                         if content_record and content_record.get("email_teaser") else None,
+                "version": content_record.get("version", 1) if content_record else 1
+            } if content_record else None,
+            "feedback": feedback_record if feedback_record else None
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Dashboard: List All Campaigns ────────────────────────────────
+@campaign_bp.route("/api/campaign/list", methods=["GET"])
+@require_auth
+def list_campaigns():
+    try:
+        user_id = str(request.user.id)
+        campaigns = get_user_campaigns(user_id)
+        return jsonify({"status": "success", "campaigns": campaigns}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Get Individual Data ───────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/fact-sheet", methods=["GET"])
 @require_auth
 def get_fact_sheet_route(campaign_id):
@@ -181,17 +226,6 @@ def get_campaign_details(campaign_id):
         if not campaign:
             return jsonify({"error": "Campaign not found"}), 404
         return jsonify({"status": "success", "campaign": campaign}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@campaign_bp.route("/api/campaign/list", methods=["GET"])
-@require_auth
-def list_campaigns():
-    try:
-        user_id = str(request.user.id)
-        campaigns = get_user_campaigns(user_id)
-        return jsonify({"status": "success", "campaigns": campaigns}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

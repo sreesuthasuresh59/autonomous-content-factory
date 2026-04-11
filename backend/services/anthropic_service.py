@@ -8,13 +8,12 @@ genai.configure(api_key=Config.GEMINI_API_KEY)
 def get_gemini_model():
     """Returns configured Gemini model"""
     return genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
+        model_name="gemma-3-27b-it",
         generation_config={
             "temperature": 0.3,
             "top_p": 0.95,
             "top_k": 40,
             "max_output_tokens": 4096,
-            "response_mime_type": "application/json",
         }
     )
 

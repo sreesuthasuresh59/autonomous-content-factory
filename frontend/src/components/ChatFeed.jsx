@@ -2,13 +2,13 @@
 import React, { useEffect, useRef } from 'react';
 
 const MESSAGE_STYLES = {
-  system: { color: 'var(--text-muted)', prefix: '🖥️ System' },
-  agent1: { color: '#7c3aed', prefix: '🔍 Fact-Checker' },
-  agent2: { color: '#3b82f6', prefix: '✍️ Copywriter' },
-  agent3: { color: '#06b6d4', prefix: '✅ Editor' },
-  success: { color: '#22c55e', prefix: '✅ Success' },
-  error: { color: '#ef4444', prefix: '❌ Error' },
-  warning: { color: '#f59e0b', prefix: '⚠️ Warning' },
+  system: { color: 'var(--text-muted)', prefix: 'System' },
+  agent1: { color: '#7c3aed', prefix: 'Fact-Checker' },
+  agent2: { color: '#3b82f6', prefix: 'Copywriter' },
+  agent3: { color: '#06b6d4', prefix: 'Editor' },
+  success: { color: '#22c55e', prefix: 'Success' },
+  error: { color: '#ef4444', prefix: 'Error' },
+  warning: { color: '#f59e0b', prefix: 'Warning' },
 };
 
 const ChatFeed = ({ messages = [] }) => {
