@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Loader from './Loader';
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, token, loading } = useAuth();
 
   if (loading) {
     return (
@@ -21,7 +21,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!user) {
+  if (!user || !token) {
     return <Navigate to="/login" replace />;
   }
 

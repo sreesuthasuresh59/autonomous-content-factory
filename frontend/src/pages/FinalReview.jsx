@@ -1,5 +1,5 @@
 // frontend/src/pages/FinalReview.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Button from '../components/Button';
@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
 const FinalReview = () => {
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -18,14 +18,10 @@ const FinalReview = () => {
   const [activeView, setActiveView] = useState('content');
   // 'content' | 'factsheet' | 'review'
 
-  useEffect(() => {
-    const id = localStorage.getItem('campaign_id');
-    if (!id) { navigate('/upload'); return; }
-    fetchSummary(id);
-  }, []);
-
-  const fetchSummary = async (campaignId) => {
+  const fetchSummary = useCallback(async (campaignId) => {
     setLoading(true);
+    setError('');
+
     try {
       const response = await axios.get(
         `http://localhost:5000/api/campaign/${campaignId}/summary`,
@@ -33,11 +29,33 @@ const FinalReview = () => {
       );
       setSummary(response.data);
     } catch (err) {
-      setError('Failed to load campaign summary.');
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      setError(err.response?.data?.error || 'Failed to load campaign summary.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [logout, navigate, token]);
+
+  useEffect(() => {
+    const id = localStorage.getItem('campaign_id');
+    if (!id) {
+      navigate('/upload');
+      return;
+    }
+
+    if (!token) {
+      logout();
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    fetchSummary(id);
+  }, [fetchSummary, logout, navigate, token]);
 
   // ─── Copy to Clipboard ───────────────────────────────────────────
   const copyToClipboard = (text, label) => {

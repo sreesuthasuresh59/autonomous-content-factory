@@ -1,5 +1,5 @@
 // frontend/src/pages/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Button from '../components/Button';
@@ -47,19 +47,17 @@ const formatDate = (dateStr) => {
 };
 
 const Dashboard = () => {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     setLoading(true);
+    setError('');
+
     try {
       const response = await axios.get(
         'http://localhost:5000/api/campaign/list',
@@ -67,11 +65,27 @@ const Dashboard = () => {
       );
       setCampaigns(response.data.campaigns || []);
     } catch (err) {
-      setError('Failed to load campaigns.');
+      if (err.response?.status === 401) {
+        logout();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      setError(err.response?.data?.error || 'Failed to load campaigns.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [logout, navigate, token]);
+
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      setError('Your session expired. Please log in again.');
+      return;
+    }
+
+    fetchCampaigns();
+  }, [token, fetchCampaigns]);
 
   const handleOpenCampaign = (campaign) => {
     localStorage.setItem('campaign_id', campaign.id);
