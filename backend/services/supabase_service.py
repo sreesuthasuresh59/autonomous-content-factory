@@ -79,9 +79,10 @@ def get_fact_sheet(campaign_id: str) -> dict:
     response = get_db().table("fact_sheets")\
         .select("*")\
         .eq("campaign_id", campaign_id)\
-        .single()\
+        .order("created_at", desc=True)\
+        .limit(1)\
         .execute()
-    return response.data
+    return response.data[0] if response.data else None
 
 # ─── Generated Content Operations ─────────────────────────────────
 

@@ -18,6 +18,7 @@ from services.supabase_service import (
 from agents.fact_check_agent import run_fact_check_agent
 from agents.copywriter_agent import run_copywriter_agent
 from agents.editor_agent import run_editor_agent
+from agents.pipeline import run_full_pipeline
 
 campaign_bp = Blueprint("campaign", __name__)
 
@@ -79,7 +80,23 @@ def upload_campaign():
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Run Fact-Check Agent ──────────────────────────────────────────
+# ─── Run Full Pipeline (NEW) ───────────────────────────────────────
+@campaign_bp.route("/api/campaign/<campaign_id>/run-pipeline", methods=["POST"])
+@require_auth
+def run_pipeline(campaign_id):
+    """
+    🔥 Master route — runs all 3 agents in sequence
+    with automatic feedback loop.
+    Single endpoint that orchestrates the entire factory.
+    """
+    try:
+        result = run_full_pipeline(campaign_id)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Run Individual Agents ─────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/fact-check", methods=["POST"])
 @require_auth
 def run_fact_check(campaign_id):
@@ -90,7 +107,6 @@ def run_fact_check(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Run Copywriter Agent ──────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/copywrite", methods=["POST"])
 @require_auth
 def run_copywriter(campaign_id):
@@ -101,15 +117,9 @@ def run_copywriter(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Run Editor Agent ──────────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/editor-review", methods=["POST"])
 @require_auth
 def run_editor_review(campaign_id):
-    """
-    Triggers Agent 3 — Editor-in-Chief Agent.
-    Requires both fact-sheet and generated content to exist.
-    Returns detailed review for all 3 content formats.
-    """
     try:
         result = run_editor_agent(campaign_id)
         return jsonify(result), 200
@@ -117,21 +127,7 @@ def run_editor_review(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Get Editor Feedback ───────────────────────────────────────────
-@campaign_bp.route("/api/campaign/<campaign_id>/feedback", methods=["GET"])
-@require_auth
-def get_feedback(campaign_id):
-    """Returns saved editor feedback for a campaign"""
-    try:
-        feedback = get_editor_feedback(campaign_id)
-        if not feedback:
-            return jsonify({"error": "No editor feedback found"}), 404
-        return jsonify({"status": "success", "feedback": feedback}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ─── Get Fact Sheet ────────────────────────────────────────────────
+# ─── Get Data Routes ───────────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/fact-sheet", methods=["GET"])
 @require_auth
 def get_fact_sheet_route(campaign_id):
@@ -147,7 +143,6 @@ def get_fact_sheet_route(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Get Generated Content ─────────────────────────────────────────
 @campaign_bp.route("/api/campaign/<campaign_id>/content", methods=["GET"])
 @require_auth
 def get_content(campaign_id):
@@ -166,7 +161,18 @@ def get_content(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Get Campaign Details ──────────────────────────────────────────
+@campaign_bp.route("/api/campaign/<campaign_id>/feedback", methods=["GET"])
+@require_auth
+def get_feedback(campaign_id):
+    try:
+        feedback = get_editor_feedback(campaign_id)
+        if not feedback:
+            return jsonify({"error": "No editor feedback found"}), 404
+        return jsonify({"status": "success", "feedback": feedback}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @campaign_bp.route("/api/campaign/<campaign_id>", methods=["GET"])
 @require_auth
 def get_campaign_details(campaign_id):
@@ -179,7 +185,6 @@ def get_campaign_details(campaign_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ─── List Campaigns ────────────────────────────────────────────────
 @campaign_bp.route("/api/campaign/list", methods=["GET"])
 @require_auth
 def list_campaigns():
@@ -191,7 +196,6 @@ def list_campaigns():
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Health Check ──────────────────────────────────────────────────
 @campaign_bp.route("/api/campaign/status", methods=["GET"])
 def campaign_status():
     return jsonify({"status": "Campaign route is live ✅"}), 200
