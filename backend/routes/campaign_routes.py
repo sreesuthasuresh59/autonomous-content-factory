@@ -1,4 +1,5 @@
 # backend/routes/campaign_routes.py
+import json
 from flask import Blueprint, request, jsonify
 from utils.helpers import (
     allowed_file,
@@ -11,10 +12,12 @@ from services.supabase_service import (
     get_user_campaigns,
     get_campaign,
     get_fact_sheet,
-    get_generated_content
+    get_generated_content,
+    get_editor_feedback
 )
 from agents.fact_check_agent import run_fact_check_agent
 from agents.copywriter_agent import run_copywriter_agent
+from agents.editor_agent import run_editor_agent
 
 campaign_bp = Blueprint("campaign", __name__)
 
@@ -32,7 +35,6 @@ def upload_campaign():
                 return jsonify({"error": "No URL provided"}), 400
             if not validate_url(url):
                 return jsonify({"error": "Invalid URL format"}), 400
-
             campaign = create_campaign(
                 user_id=user_id,
                 title="Campaign from URL",
@@ -49,7 +51,6 @@ def upload_campaign():
 
         if "file" not in request.files:
             return jsonify({"error": "No file in request"}), 400
-
         file = request.files["file"]
         if file.filename == "":
             return jsonify({"error": "No file selected"}), 400
@@ -57,7 +58,7 @@ def upload_campaign():
             return jsonify({"error": "File type not allowed. Use PDF, TXT, MD, or DOCX"}), 400
 
         raw_text = extract_text_from_file(file)
-        content = raw_text if raw_text else f"[Binary file uploaded: {file.filename}]"
+        content = raw_text if raw_text else f"[Binary file: {file.filename}]"
 
         campaign = create_campaign(
             user_id=user_id,
@@ -93,14 +94,39 @@ def run_fact_check(campaign_id):
 @campaign_bp.route("/api/campaign/<campaign_id>/copywrite", methods=["POST"])
 @require_auth
 def run_copywriter(campaign_id):
-    """
-    Triggers Agent 2 — Copywriter Agent.
-    Requires fact-sheet to already exist from Agent 1.
-    Returns blog, social thread, and email teaser.
-    """
     try:
         result = run_copywriter_agent(campaign_id)
         return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Run Editor Agent ──────────────────────────────────────────────
+@campaign_bp.route("/api/campaign/<campaign_id>/editor-review", methods=["POST"])
+@require_auth
+def run_editor_review(campaign_id):
+    """
+    Triggers Agent 3 — Editor-in-Chief Agent.
+    Requires both fact-sheet and generated content to exist.
+    Returns detailed review for all 3 content formats.
+    """
+    try:
+        result = run_editor_agent(campaign_id)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Get Editor Feedback ───────────────────────────────────────────
+@campaign_bp.route("/api/campaign/<campaign_id>/feedback", methods=["GET"])
+@require_auth
+def get_feedback(campaign_id):
+    """Returns saved editor feedback for a campaign"""
+    try:
+        feedback = get_editor_feedback(campaign_id)
+        if not feedback:
+            return jsonify({"error": "No editor feedback found"}), 404
+        return jsonify({"status": "success", "feedback": feedback}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -125,12 +151,10 @@ def get_fact_sheet_route(campaign_id):
 @campaign_bp.route("/api/campaign/<campaign_id>/content", methods=["GET"])
 @require_auth
 def get_content(campaign_id):
-    """Returns saved generated content for a campaign"""
     try:
         content = get_generated_content(campaign_id)
         if not content:
             return jsonify({"error": "No generated content found"}), 404
-
         return jsonify({
             "status": "success",
             "blog": json.loads(content["blog_post"]) if content.get("blog_post") else None,
@@ -171,7 +195,3 @@ def list_campaigns():
 @campaign_bp.route("/api/campaign/status", methods=["GET"])
 def campaign_status():
     return jsonify({"status": "Campaign route is live ✅"}), 200
-
-
-# ─── Missing import fix ────────────────────────────────────────────
-import json
