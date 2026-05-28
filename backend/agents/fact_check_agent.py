@@ -83,6 +83,10 @@ def clean_json_response(raw: str) -> dict:
         raise ValueError("No valid JSON object found in response")
 
     json_str = cleaned[start:end]
+    # Remove single-line JS-style comments (e.g. // comment)
+    json_str = re.sub(r'(?<!:)\/\/.*$', '', json_str, flags=re.MULTILINE)
+    # Remove trailing commas before closing braces/brackets
+    json_str = re.sub(r',\s*([\]}])', r'\1', json_str)
     return json.loads(json_str)
 
 # ─── Validation ────────────────────────────────────────────────────

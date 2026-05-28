@@ -70,7 +70,8 @@ def regenerate_with_corrections(
         build_blog_prompt,
         build_social_prompt,
         build_email_prompt,
-        clean_json_response
+        clean_json_response,
+        COPYWRITER_SYSTEM_PROMPT
     )
     from services.anthropic_service import call_gemini
     from services.supabase_service import get_fact_sheet
@@ -106,7 +107,7 @@ PREVIOUS BLOG WAS REJECTED. Here is the correction note from the Editor:
 Now fix the blog post according to these corrections.
 {build_blog_prompt(fact_sheet)}
 """
-        raw = call_gemini(prompt=correction_prompt)
+        raw = call_gemini(prompt=correction_prompt, system_prompt=COPYWRITER_SYSTEM_PROMPT)
         new_blog = clean_json_response(raw)
 
     if correction_notes.get("social"):
@@ -118,7 +119,7 @@ PREVIOUS SOCIAL THREAD WAS REJECTED. Here is the correction note from the Editor
 Now fix the social thread according to these corrections.
 {build_social_prompt(fact_sheet)}
 """
-        raw = call_gemini(prompt=correction_prompt)
+        raw = call_gemini(prompt=correction_prompt, system_prompt=COPYWRITER_SYSTEM_PROMPT)
         new_social = clean_json_response(raw)
 
     if correction_notes.get("email"):
@@ -130,7 +131,7 @@ PREVIOUS EMAIL WAS REJECTED. Here is the correction note from the Editor:
 Now fix the email teaser according to these corrections.
 {build_email_prompt(fact_sheet)}
 """
-        raw = call_gemini(prompt=correction_prompt)
+        raw = call_gemini(prompt=correction_prompt, system_prompt=COPYWRITER_SYSTEM_PROMPT)
         new_email = clean_json_response(raw)
 
     # Save new version

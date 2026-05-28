@@ -148,7 +148,33 @@ def clean_json_response(raw: str) -> dict:
     end = cleaned.rfind("}") + 1
     if start == -1 or end == 0:
         raise ValueError("No valid JSON found in response")
-    return json.loads(cleaned[start:end])
+    json_str = cleaned[start:end]
+    # Remove single-line JS-style comments (e.g. // comment)
+    json_str = re.sub(r'(?<!:)\/\/.*$', '', json_str, flags=re.MULTILINE)
+    # Remove trailing commas before closing braces/brackets
+    json_str = re.sub(r',\s*([\]}])', r'\1', json_str)
+    return json.loads(json_str)
+
+def parse_score(val) -> float:
+    """Safely extracts a numeric score from various potential formats (e.g. 8, '8', '8/10')"""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    val_str = str(val).strip()
+    if "/" in val_str:
+        try:
+            numerator = val_str.split("/")[0].strip()
+            return float(numerator)
+        except Exception:
+            pass
+    try:
+        match = re.search(r"\d+(?:\.\d+)?", val_str)
+        if match:
+            return float(match.group())
+    except Exception:
+        pass
+    return 0.0
 
 # ─── Main Agent Function ───────────────────────────────────────────
 def run_editor_agent(campaign_id: str) -> dict:
@@ -247,13 +273,13 @@ def run_editor_agent(campaign_id: str) -> dict:
                 "email": email
             },
             "summary": {
-                "blog_score": blog_review.get("overall_score", 0),
-                "social_score": social_review.get("overall_score", 0),
-                "email_score": email_review.get("overall_score", 0),
+                "blog_score": parse_score(blog_review.get("overall_score", 0)),
+                "social_score": parse_score(social_review.get("overall_score", 0)),
+                "email_score": parse_score(email_review.get("overall_score", 0)),
                 "avg_score": round((
-                    blog_review.get("overall_score", 0) +
-                    social_review.get("overall_score", 0) +
-                    email_review.get("overall_score", 0)
+                    parse_score(blog_review.get("overall_score", 0)) +
+                    parse_score(social_review.get("overall_score", 0)) +
+                    parse_score(email_review.get("overall_score", 0))
                 ) / 3, 1)
             }
         }

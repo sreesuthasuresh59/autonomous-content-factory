@@ -118,7 +118,12 @@ def clean_json_response(raw: str) -> dict:
     end = cleaned.rfind("}") + 1
     if start == -1 or end == 0:
         raise ValueError("No valid JSON found in response")
-    return json.loads(cleaned[start:end])
+    json_str = cleaned[start:end]
+    # Remove single-line JS-style comments (e.g. // comment)
+    json_str = re.sub(r'(?<!:)\/\/.*$', '', json_str, flags=re.MULTILINE)
+    # Remove trailing commas before closing braces/brackets
+    json_str = re.sub(r',\s*([\]}])', r'\1', json_str)
+    return json.loads(json_str)
 
 # ─── Content Validator ─────────────────────────────────────────────
 def validate_content_against_factsheet(content: str, fact_sheet: dict) -> list:
